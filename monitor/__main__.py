@@ -151,7 +151,7 @@ def ejemplo(sources, c: Criteria, tg: Telegram, max_fichas: int = 6) -> int:
                     continue
             if matches(it, c):
                 text = msg.new_listing(it, src.name, "🧪 <i>Mensaje de ejemplo: así llegarán los avisos</i>")
-                ok = tg.send_listing(text, it.photo)
+                ok = tg.send_listing(text, it.photo, it.url)
                 print(("Enviado: " if ok else "Error enviando: ") + it.url)
                 return 0 if ok else 1
         print(f"{src.name}: ningún anuncio que cumpla ahora mismo, pruebo la siguiente")
