@@ -1,0 +1,86 @@
+# Monitor de viviendas en GitHub Actions: cada 15 minutos ejecuta un ciclo
+# ("python -m monitor once") y guarda la base de datos en la caché de Actions
+# para la siguiente vez.
+#
+# Secrets necesarios (Settings → Secrets and variables → Actions):
+#   TELEGRAM_BOT_TOKEN   token del bot
+#   TELEGRAM_CHAT_ID     id del grupo (p. ej. -1004382996213)
+
+name: monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"     # hora UTC; GitHub puede retrasarlo unos minutos
+  workflow_dispatch:            # botón "Run workflow" para lanzarlo a mano
+    inputs:
+      comando:
+        description: "once (ciclo normal), resumen, ejemplo, estado o telegram-test"
+        default: once
+
+concurrency:                    # nunca dos ejecuciones a la vez (compartirían la BD)
+  group: monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write               # solo para el "keepalive" de abajo
+
+jobs:
+  ciclo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Caché del navegador (Playwright)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Instalar Chromium
+        run: python -m playwright install --with-deps chromium
+
+      # La base de datos vive en la caché de Actions: cada ejecución restaura la última
+      # y guarda una nueva. Si algún día se perdiera, el monitor vuelve a "sembrar" en
+      # silencio (no reenvía todo), así que no pasa nada grave.
+      - name: Recuperar base de datos
+        uses: actions/cache/restore@v4
+        with:
+          path: data/monitor.sqlite
+          key: bd-${{ github.run_id }}
+          restore-keys: bd-
+
+      - name: Ejecutar monitor
+        run: python -m monitor ${{ github.event.inputs.comando || 'once' }}
+
+      - name: Guardar base de datos
+        if: always() && hashFiles('data/monitor.sqlite') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: data/monitor.sqlite
+          key: bd-${{ github.run_id }}
+
+      # GitHub desactiva las tareas programadas de un repo público tras 60 días sin
+      # cambios. Si el último commit tiene más de 45 días, hacemos uno vacío.
+      - name: Keepalive
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            git config user.name "monitor-bot"
+            git config user.email "monitor-bot@users.noreply.github.com"
+            git commit --allow-empty -m "keepalive"
+            git push
+          fi
