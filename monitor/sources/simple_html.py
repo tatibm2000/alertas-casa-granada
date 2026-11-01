@@ -207,7 +207,11 @@ class Tecnocasa(Source):
 
     def page_url(self, n: int) -> str:
         base = self.opts.get("list_url") or "https://www.tecnocasa.es/venta/inmuebles/andalucia/granada.html"
-        return base if n == 1 else f"{base}/pag-{n}"
+        if n == 1:
+            return base
+        # con filtros: .../granada.html/pag-2?min_price=...&sort=...
+        path, _, query = base.partition("?")
+        return f"{path}/pag-{n}" + (f"?{query}" if query else "")
 
     def fetch(self) -> list[Listing]:
         self._cycle += 1
