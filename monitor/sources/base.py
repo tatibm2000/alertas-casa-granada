@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from urllib.parse import urljoin
+
 import logging
 from typing import Iterable
 
@@ -50,3 +53,22 @@ def unique(items: Iterable[Listing]) -> list[Listing]:
             seen.add(it.id)
             out.append(it)
     return out
+
+
+_NOT_PHOTO = re.compile(r"\.(svg|gif)(\?|$)|logo|icon|sprite|placeholder|loading|blank|pixel", re.I)
+
+
+def img_url(img, base: str) -> str | None:
+    """URL de la foto de una etiqueta <img>, mirando también la carga diferida (data-src...).
+    Descarta iconos, logos y marcadores de posición."""
+    if img is None:
+        return None
+    cands = [img.get(k) for k in ("data-src", "data-lazy-src", "data-original", "data-srcset", "srcset", "src")]
+    for c in cands:
+        if not c:
+            continue
+        c = c.strip().split(",")[0].split(" ")[0]  # srcset: "foto.jpg 800w, ..."
+        if not c or c.startswith("data:") or _NOT_PHOTO.search(c):
+            continue
+        return urljoin(base, c)
+    return None
