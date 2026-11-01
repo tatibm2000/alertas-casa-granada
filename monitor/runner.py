@@ -185,7 +185,7 @@ class Monitor:
                     note = f"📉 Ha bajado de {msg.eur(prev['price'])} y ahora entra en el rango."
                 self._alert_new(src, it, note)
             elif prev["price"] and it.price and it.price < prev["price"] * (1 - self.c.price_drop_min_pct / 100):
-                self.tg.send_listing(msg.price_drop(it, prev["price"], src.name), it.photo)
+                self.tg.send_listing(msg.price_drop(it, prev["price"], src.name), it.photo, it.url)
                 self.store.log_alert("drop", it, fingerprint(it))
 
         # 4) regla de rescate: si este portal no tiene nada en precio, el más reciente con 3+ hab
@@ -206,7 +206,7 @@ class Monitor:
             self.tg.send_text(msg.duplicate(it, src.name, self.names.get(dup["source"], dup["source"]), dup["url"]))
             self.store.log_alert("dup", it, fp)
         else:
-            self.tg.send_listing(msg.new_listing(it, src.name, note), it.photo)
+            self.tg.send_listing(msg.new_listing(it, src.name, note), it.photo, it.url)
             self.store.log_alert("new", it, fp)
         self.store.set_flag(src.id, it.id, "notified_match")
 
@@ -226,7 +226,7 @@ class Monitor:
         row = self.store.get(src.id, top.id)
         if row["notified_fallback"] or row["notified_match"]:
             return
-        self.tg.send_listing(msg.fallback(top, src.name, self.c.max_price, self.c.min_rooms), top.photo)
+        self.tg.send_listing(msg.fallback(top, src.name, self.c.max_price, self.c.min_rooms), top.photo, top.url)
         self.store.log_alert("fallback", top, fingerprint(top))
         self.store.set_flag(src.id, top.id, "notified_fallback")
 
