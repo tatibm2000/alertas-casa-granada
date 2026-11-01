@@ -1,0 +1,18 @@
+[Unit]
+Description=Monitor de viviendas en Granada (alertas a Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/granada-monitor
+ExecStart=/home/ubuntu/granada-monitor/.venv/bin/python -m monitor run
+Restart=always
+RestartSec=60
+Environment=PYTHONUNBUFFERED=1
+# Limita memoria por si Chromium se desmadra
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target

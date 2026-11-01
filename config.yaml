@@ -1,0 +1,221 @@
+# ------------------------------------------------------------------
+#  Monitor de viviendas · provincia de Granada
+#  Edita este archivo y reinicia el servicio:  sudo systemctl restart granada-monitor
+# ------------------------------------------------------------------
+
+criteria:
+  max_price: 220000        # precio objetivo (≤)
+  min_rooms: 3             # habitaciones mínimas (≥)
+  min_price: 100000        # precio mínimo (≥)
+  exclude_types:           # además de garajes, terrenos, solares, parcelas, locales, naves,
+    - cochera              # oficinas, trasteros y edificios (ya excluidos por defecto)
+    - plaza de garaje
+    - finca rustica
+  fallback: true           # regla de rescate: si un portal no tiene nada en rango, avisa del
+                           # más reciente con min_rooms+ hab y precio ≥ min_price (vivienda)
+  price_drop_min_pct: 1    # avisar de bajadas de precio de al menos este %
+  zona:                    # lista cerrada: solo se avisa de viviendas en estos municipios
+    - Maracena             # (quita la sección entera para volver a toda la provincia;
+    - Albolote             #  para añadir la capital, añade una línea "- Granada")
+    - Armilla
+    - Churriana de la Vega
+    - Las Gabias
+    - Cúllar Vega
+    - Vegas del Genil
+    - Alhendín
+    - Otura
+    - Ogíjares
+    - Gójar
+    - La Zubia
+    - Huétor Vega
+    - Cájar
+    - Monachil
+
+interval_minutes: 15       # cada cuánto se revisan las webs
+timezone: Europe/Madrid
+quiet_hours: [0, 8]        # de 00:00 a 08:00 los mensajes llegan sin sonido (quitar la línea para desactivar)
+heartbeat_hour: 9          # resumen diario "sigo vivo" a partir de esta hora (quitar para desactivar)
+fail_alert_after: 3        # avisar si una web falla N veces seguidas
+enrich_limit_per_source: 12  # fichas máximas que se abren por web y ciclo
+database: data/monitor.sqlite
+
+# kind = tipo de conector (ver monitor/sources). every = cada cuántos ciclos se revisa.
+sources:
+  - id: inmoarrayan
+    name: Inmo Arrayán
+    kind: aphome
+    base_url: https://www.inmoarrayan.com
+
+  - id: inmofuturo
+    name: Inmofuturo
+    kind: inmovilla
+    base_url: https://www.inmofuturo.es
+
+  - id: invivus
+    name: Invivus Granada
+    kind: inmovilla
+    base_url: https://www.invivusgranada.es
+
+  - id: remaxcima
+    name: RE/MAX Cima
+    kind: remax
+    base_url: https://www.remaxcima.es
+
+  - id: neopatrimonial
+    name: Neo Patrimonial
+    kind: inmovilla
+    # la web de Neo carga el listado en un iframe de Inmovilla (agencia 9329)
+    base_url: https://www.webparainmobiliarias.com.es/frame-clientes/9329
+    geo_check: true          # también publica en Madrid: se filtra por municipio
+
+  - id: donpiso
+    name: DonPiso Granada
+    kind: donpiso
+    list_url: https://www.donpiso.com/venta-casas-y-pisos/granada/listado
+
+  - id: plancasa
+    name: Plancasa Inmobiliaria
+    kind: wp_houzez
+    base_url: https://plancasainmobiliaria.com
+
+  - id: grupotorres
+    name: Grupo Torres
+    kind: grupotorres
+    base_url: https://grupotorres.com
+
+  - id: kwkinver
+    name: KW Kinver
+    kind: kw
+    base_url: https://www.kwkinver.com
+    geo_check: true
+    every: 2                 # usa navegador: cada 2 ciclos (30 min)
+
+  - id: tecnocasa
+    name: Tecnocasa
+    kind: tecnocasa
+    list_url: https://www.tecnocasa.es/venta/inmuebles/andalucia/granada.html
+    quick_pages: 3           # páginas que se leen en cada ciclo
+    full_every: 8            # cada 8 ciclos (~2 h) se recorre el listado entero
+    max_pages: 60
+
+  - id: inmobiliaria30
+    name: Inmobiliaria 3.0
+    kind: inmo30
+    base_url: https://www.inmobiliaria30.com
+
+  - id: jym
+    name: JyM Gestión Inmobiliaria
+    kind: inmovilla
+    base_url: https://www.jymgestioninmobiliaria.es
+
+  - id: inmoaire
+    name: InmoAire
+    kind: inmovilla
+    base_url: https://www.inmoaire.es
+
+  - id: ventaria
+    name: Ventaria
+    kind: ventaria
+    base_url: https://ventaria.es
+    # Su cortafuegos bloquea también al navegador automático (403). Desactivada de momento;
+    # pon enabled: true para volver a probarla más adelante.
+    enabled: false
+
+  - id: comprarcasa
+    name: Comprarcasa Portal Home
+    kind: comprarcasa
+    web_id: 5ba8e0b1-455e-48ab-9d29-af7333254b2f
+    site_url: https://portalhome.comprarcasa.com
+
+  - id: inmozafiro
+    name: InmoZafiro
+    kind: pisoscom
+    base_url: https://www.inmozafiro.com
+
+  - id: deymar
+    name: Deymar Inmobiliaria
+    kind: deymar
+    base_url: https://deymar.es
+    every: 2                 # usa navegador
+
+  # ---------------------------------------------------------------- añadidas (noviembre 2026)
+  - id: 4arcos
+    name: 4Arcos
+    kind: inmovilla
+    base_url: https://www.inmobiliaria4arcos.net
+    list_path: venta.php     # plantilla antigua de Inmovilla
+    browser_sort: true       # sale ordenada por precio: el navegador elige "Más recientes"
+    every: 2                 # usa navegador
+
+  # Las siguientes usan el conector genérico: detecta el software (Inmovilla, WordPress...)
+  # o lee las tarjetas del HTML. Compruébalas con: python -m monitor check --source <id>
+  - id: indefundu
+    name: Indefundu
+    kind: generic
+    base_url: https://www.indefundu.com
+    # www.indefundu.com no existe (el dominio no responde). Pon aquí la web correcta y enabled: true
+    enabled: false
+
+  - id: granatte
+    name: Granatte
+    kind: generic
+    base_url: https://www.inmogranatte.com
+
+  - id: centrogranada
+    name: Inmobiliaria Centro Granada
+    kind: generic
+    base_url: https://www.pisoscentro.com
+
+  - id: inmocasa
+    name: Inmocasa Granada
+    kind: generic
+    base_url: https://www.inmocasagranada.com
+
+  - id: laparada
+    name: La Parada Inmobiliaria
+    kind: generic
+    base_url: https://www.laparadainmobiliaria.com
+
+  - id: ruizcasas
+    name: Ruizcasas
+    kind: generic
+    base_url: https://www.ruizcasasinmobiliaria.es
+
+  - id: dn
+    name: Inmobiliaria D&N
+    kind: generic
+    base_url: https://dninmobiliaria.com
+
+  - id: joy
+    name: Inmobiliaria Joy
+    kind: generic
+    base_url: https://www.inmojoy.com
+
+  - id: vivalis
+    name: Vivalis Inmobiliaria
+    kind: generic
+    base_url: https://vivalis.net
+
+  - id: mjluna
+    name: Mjluna Asesores
+    kind: generic
+    base_url: https://www.mjlunaasesores.com
+
+  - id: inmoreal
+    name: Inmobiliaria Real
+    kind: generic
+    base_url: https://www.inmobiliariareal.es
+
+  - id: gruposiles
+    name: Grupo Siles
+    kind: generic
+    base_url: https://royalblue-eagle-337275.hostingersite.com   # web provisional
+
+  - id: century21avanza
+    name: Century 21 Avanza
+    kind: generic
+    base_url: https://www.century21.es
+    # Es la web nacional: hace falta la URL del listado de la oficina Avanza (Arabial).
+    # Cuando la tengas, ponla en list_url y cambia enabled a true.
+    # list_url: https://www.century21.es/...
+    enabled: false
