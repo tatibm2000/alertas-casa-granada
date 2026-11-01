@@ -93,10 +93,11 @@ sources:
   - id: tecnocasa
     name: Tecnocasa
     kind: tecnocasa
-    list_url: https://www.tecnocasa.es/venta/inmuebles/andalucia/granada.html
-    quick_pages: 3           # páginas que se leen en cada ciclo
-    full_every: 8            # cada 8 ciclos (~2 h) se recorre el listado entero
-    max_pages: 60
+    # filtrado en la propia web (100.000–220.000 €, 3+ dorm.) y ordenado por actualización
+    list_url: https://www.tecnocasa.es/venta/inmuebles/andalucia/granada.html?min_price=100000&max_price=220000&min_rooms=3&sort=Aggiornamento|DESC
+    quick_pages: 2           # páginas que se leen en cada ciclo (lo nuevo sale arriba)
+    full_every: 16           # cada 16 ciclos (~4 h) se recorre el listado filtrado entero
+    max_pages: 30
 
   - id: inmobiliaria30
     name: Inmobiliaria 3.0
