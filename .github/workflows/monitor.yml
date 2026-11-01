@@ -10,7 +10,7 @@ name: monitor
 
 on:
   schedule:
-    - cron: "*/15 * * * *"     # hora UTC; GitHub puede retrasarlo unos minutos
+    - cron: "4,19,34,49 * * * *"    # hora UTC; GitHub puede retrasarlo unos minutos
   workflow_dispatch:            # botón "Run workflow" para lanzarlo a mano
     inputs:
       comando:
