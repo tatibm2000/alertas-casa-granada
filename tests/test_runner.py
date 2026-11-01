@@ -16,7 +16,7 @@ class FakeTG:
         self.sent.append(text)
         return True
 
-    def send_listing(self, caption, photo):
+    def send_listing(self, caption, photo, page_url=None):
         self.sent.append(caption)
         return True
 
