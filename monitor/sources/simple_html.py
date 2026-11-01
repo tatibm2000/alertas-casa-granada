@@ -12,7 +12,7 @@ from requests.utils import requote_uri
 
 from ..models import Listing, id_sort_key
 from ..utils import clean, m2_from_text, parse_int, parse_price, rooms_from_text
-from .base import Source, unique
+from .base import Source, img_url, unique
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class Aphome(Source):
             muni, _, ptype = pobl.partition(" - ")
             transac = clean(box.select_one(".listado_inmuebles_transaccion").get_text()) if box.select_one(".listado_inmuebles_transaccion") else "Venta"
             card = box.parent
-            img = card.select_one("img[src]") if card else None
+            img = card.select_one("img") if card else None
             out.append(
                 self.L(
                     id=pid,
@@ -61,7 +61,7 @@ class Aphome(Source):
                     price=parse_price(box.select_one(".listado_inmuebles_precio").get_text()) if box.select_one(".listado_inmuebles_precio") else None,
                     rooms=parse_int(box.select_one(".listado_inmuebles_habitaciones").get_text()) if box.select_one(".listado_inmuebles_habitaciones") else None,
                     m2=m2_from_text(box.get_text(" ")),
-                    photo=urljoin(page_url, img["src"]) if img else None,
+                    photo=img_url(img, page_url),
                     sort_key=id_sort_key(pid),
                     province_ok=True,
                     is_sale="venta" in transac.lower(),
@@ -111,7 +111,7 @@ class Remax(Source):
                     price=parse_price(price_el.get_text()) if price_el else None,
                     rooms=rooms_from_text(text),
                     m2=m2_from_text(text),
-                    photo=img["src"] if img else None,
+                    photo=img_url(img, page_url),
                     sort_key=id_sort_key(ref),
                     province_ok=prov_ok,
                     is_sale="/venta/" in url,
@@ -268,7 +268,7 @@ class Tecnocasa(Source):
                     price=parse_price(price.get_text()) if price else None,
                     rooms=parse_int(rooms_el.get_text()) if rooms_el else None,
                     m2=parse_int(surf.get_text()) if surf else None,
-                    photo=img["src"] if img else None,
+                    photo=img_url(img, page_url),
                     sort_key=id_sort_key(pid),
                     province_ok=True,
                     is_sale="/venta/" in url,
@@ -372,7 +372,7 @@ class DonPiso(Source):
                     price=parse_price(re.search(r"([\d.]+)\s*€(?!/)", text).group(1)) if re.search(r"([\d.]+)\s*€(?!/)", text) else None,
                     rooms=rooms_from_text(text),
                     m2=m2_from_text(text),
-                    photo=urljoin(page_url, img["src"]) if img else None,
+                    photo=img_url(img, page_url),
                     sort_key=id_sort_key(pid),
                     province_ok=True,
                     is_sale=True,
@@ -422,7 +422,7 @@ class Inmo30(Source):
                     price=parse_price(pm.group(1)) if pm else None,
                     rooms=rooms,
                     m2=m2,
-                    photo=urljoin(page_url, img["src"]) if img else None,
+                    photo=img_url(img, page_url),
                     sort_key=id_sort_key(pid),
                     province_ok=True,
                     is_sale=True,
