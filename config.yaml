@@ -11,7 +11,7 @@ criteria:
     - cochera              # oficinas, trasteros y edificios (ya excluidos por defecto)
     - plaza de garaje
     - finca rustica
-  fallback: false          # regla de rescate: si un portal no tiene nada en rango, avisa del
+  fallback: false           # regla de rescate: si un portal no tiene nada en rango, avisa del
                            # más reciente con min_rooms+ hab y precio ≥ min_price (vivienda)
   price_drop_min_pct: 1    # avisar de bajadas de precio de al menos este %
   zona:                    # lista cerrada: solo se avisa de viviendas en estos municipios
@@ -240,15 +240,11 @@ sources:
     list_path: venta.php
     browser_sort: true
     every: 2
-    en_pruebas: true
 
   - id: violon
     name: Violón Alminares
-    kind: inmovilla
+    kind: generic             # con venta.php no salió nada: que detecte el listado solo
     base_url: https://www.violonalminares.com
-    list_path: venta.php
-    browser_sort: true
-    every: 2
     en_pruebas: true
 
   # Inmovilla (plantilla nueva, enlaces /ficha/...)
@@ -256,19 +252,16 @@ sources:
     name: Tokyo Homes
     kind: inmovilla
     base_url: https://www.tokyohomes.es
-    en_pruebas: true
 
   - id: rutaria
     name: Rutaria
     kind: inmovilla
     base_url: https://www.rutariainmobiliaria.com
-    en_pruebas: true
 
   - id: nosolopiso
     name: Nosolopiso
     kind: inmovilla
     base_url: https://www.nosolopiso.com
-    en_pruebas: true
 
   # Conector genérico (detecta Inmovilla/WordPress o lee las tarjetas)
   - id: navygar
@@ -280,7 +273,10 @@ sources:
   - id: inmocg
     name: Inmobiliaria CG
     kind: generic
-    base_url: https://comprar.inmobiliariacg.com
+    # comprar.inmobiliariacg.com tiene un certificado antiguo que ningún navegador acepta;
+    # su buscador también está en rkgranada.com
+    base_url: https://www.comprar.rkgranada.com
+    list_url: https://www.comprar.rkgranada.com/es/
     en_pruebas: true
 
   - id: ysabika
@@ -293,7 +289,7 @@ sources:
     name: Vélez Casas
     kind: generic
     base_url: https://www.velezcasas.com
-    en_pruebas: true
+    local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
 
   - id: naveros
     name: Inmobiliaria Naveros
@@ -311,6 +307,7 @@ sources:
     name: Zurita y Navarro
     kind: generic
     base_url: https://www.zuritaynavarro.es
+    list_url: https://www.zuritaynavarro.es/ventas.asp?tipo=venta&c=25738
     en_pruebas: true
 
   - id: globe
@@ -323,25 +320,23 @@ sources:
     name: U-Home
     kind: generic
     base_url: https://www.u-homeinmobiliaria.com
-    en_pruebas: true
+    local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
 
   - id: tibuhomes
     name: Tibu Homes
     kind: generic
     base_url: https://www.tibuhomes.es
-    en_pruebas: true
 
   - id: viviendaslocales
     name: Viviendas y Locales Granada
     kind: generic
     base_url: https://www.viviendasylocalesgranada.com
-    en_pruebas: true
 
   - id: redinmo
     name: RED Inmobiliaria
     kind: generic
     base_url: https://www.redconstitucion.com
-    en_pruebas: true
+    local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
 
   - id: redall
     name: Grupo Redall
@@ -354,14 +349,14 @@ sources:
     kind: generic
     base_url: https://www.inmobiliariatengotullave.com
     # local de La Zubia
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
 
   - id: urbanhome
     name: Urbanhome
     kind: generic
     base_url: https://www.inmobiliariaurbanhome.com
     # local de Ogíjares
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
 
   - id: grupolares
     name: Grupo Lares
@@ -375,28 +370,25 @@ sources:
     kind: generic
     base_url: https://www.comerciacasa.es
     # local de Armilla
-    en_pruebas: true
 
   - id: inhouse
     name: In House Consultores
     kind: generic
     base_url: https://www.inhouseconsultores.com
     # local de Armilla
-    en_pruebas: true
 
   - id: ayg
     name: AyG Inmobiliaria
     kind: generic
     base_url: https://www.inmobiliariaayg.com
     # local de Las Gabias
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
 
   - id: segurjafer
     name: Segurjafer
     kind: generic
     base_url: https://segurjafer.es
     # local de Otura
-    en_pruebas: true
 
   - id: clesamar
     name: Clesamar
@@ -410,7 +402,7 @@ sources:
     kind: generic
     base_url: https://www.inmoalhendin.com
     # local de Alhendín
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
 
   - id: granahidal
     name: Granahidal
@@ -424,12 +416,12 @@ sources:
     kind: generic
     base_url: https://www.racredit.es
     # local de Cúllar Vega
-    en_pruebas: true
 
   - id: osadia
     name: Osadía Real Estate
     kind: generic
     base_url: https://www.osadiarealestate.com
+    list_url: https://www.osadiarealestate.com/property-category/en-venta
     # local de Monachil
     en_pruebas: true
 
@@ -438,13 +430,11 @@ sources:
     kind: generic
     base_url: https://inmobiliariauno.es
     # local de Monachil
-    en_pruebas: true
 
   - id: idealhouse
     name: IDEALhouse
     kind: generic
     base_url: https://www.inmueblesidealhouse.es
-    en_pruebas: true
 
   - id: granalux
     name: Granalux
@@ -454,7 +444,7 @@ sources:
 
   - id: inmosg
     name: SG Inmobiliaria
-    kind: generic
+    kind: inmovilla           # su /venta/es/ sale ordenado por precio: usamos venta/?orden=5
     base_url: https://www.inmobiliariasg.com
     en_pruebas: true
 
@@ -462,6 +452,7 @@ sources:
     name: Grecco
     kind: generic
     base_url: https://grecco.es
+    list_url: https://grecco.es/ventas.asp?tipo=venta&c=79
     en_pruebas: true
 
   - id: century21avanza
