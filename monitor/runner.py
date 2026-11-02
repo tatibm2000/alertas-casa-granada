@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import signal
 import time
@@ -34,11 +35,14 @@ def row_to_listing(r) -> Listing:
 
 
 class Monitor:
-    def __init__(self, cfg: dict, sources: list[Source], store: Store, tg: Telegram):
+    def __init__(self, cfg: dict, sources: list[Source], store: Store, tg: Telegram,
+                 admin: Telegram | None = None):
         self.cfg = cfg
         self.sources = sources
         self.store = store
-        self.tg = tg
+        self.tg = tg                  # grupo: solo pisos
+        self.admin = admin or tg      # chat privado: incidencias y estado del monitor
+        self.incidents: list[str] = []
         self.c = Criteria.from_cfg(cfg.get("criteria", {}))
         self.names = {s.id: s.name for s in sources}
         self.tz = ZoneInfo(cfg.get("timezone", "Europe/Madrid"))
@@ -98,12 +102,13 @@ class Monitor:
         if self.seeded_now:
             total = sum(n for _, n in self.seeded_now)
             fuentes = ", ".join(esc(self.names[s]) for s, _ in self.seeded_now)
-            self.tg.send_text(
+            self.incidents.append(
                 f"✅ <b>Fuentes inicializadas</b>: {fuentes}\n"
                 f"{total} anuncios registrados como punto de partida. "
                 f"A partir de ahora avisaré solo de las novedades "
                 f"(≤ {msg.eur(self.c.max_price)}, {self.c.min_rooms}+ hab)."
             )
+        self.flush_incidents()
         self.heartbeat()
         self.store.commit()
 
@@ -120,9 +125,9 @@ class Monitor:
             self.store.update_state(src.id, empties=empties)
             log.warning("%s: 0 anuncios (%d veces seguidas)", src.id, empties)
             if empties >= self.fail_alert_after and not state["alerted_down"]:
-                self.tg.send_text(
-                    f"⚠️ <b>{esc(src.name)}</b> devuelve 0 anuncios desde hace {empties} intentos. "
-                    f"Puede que hayan cambiado la web."
+                self.incidents.append(
+                    f"⚠️ <b>{esc(src.name)}</b>: 0 anuncios en los últimos {empties} intentos "
+                    f"(¿bloqueo o cambio de web?)"
                 )
                 self.store.update_state(src.id, alerted_down=1)
             return
@@ -235,17 +240,38 @@ class Monitor:
         log.warning("%s falló (%d seguidas): %s", src.id, failures, err)
         self.store.update_state(src.id, failures=failures, last_error=err[:500])
         if failures >= self.fail_alert_after and not state["alerted_down"]:
-            self.tg.send_text(
-                f"⚠️ <b>{esc(src.name)}</b> falla desde hace {failures} intentos.\n<code>{esc(err[:300])}</code>"
+            self.incidents.append(
+                f"⚠️ <b>{esc(src.name)}</b>: falla en los últimos {failures} intentos\n<code>{esc(err[:200])}</code>"
             )
             self.store.update_state(src.id, alerted_down=1)
 
     def _on_success(self, src: Source, state, n: int) -> None:
         if state["alerted_down"]:
-            self.tg.send_text(f"✅ <b>{esc(src.name)}</b> vuelve a funcionar ({n} anuncios).")
+            self.incidents.append(f"✅ <b>{esc(src.name)}</b> vuelve a funcionar ({n} anuncios)")
         self.store.update_state(src.id, failures=0, empties=0, alerted_down=0,
                                 last_ok=datetime.now(self.tz).isoformat(timespec="seconds"), last_count=n)
         log.info("%s: %d anuncios", src.id, n)
+
+    def flush_incidents(self) -> None:
+        """Todas las incidencias del ciclo en UN mensaje al chat privado. En horas de
+        silencio no se manda nada: se guardan y salen en el primer ciclo de la mañana."""
+        try:
+            pending = json.loads(self.store.get_meta("pending_incidents") or "[]")
+        except ValueError:
+            pending = []
+        pending += self.incidents
+        self.incidents = []
+        if not pending:
+            return
+        if self._quiet_now():
+            self.store.set_meta("pending_incidents", json.dumps(pending[-40:]))
+            return
+        now = datetime.now(self.tz)
+        text = f"🛠 <b>Incidencias del monitor</b> ({now:%d/%m %H:%M})\n\n" + "\n\n".join(pending)
+        if self.admin.send_text(text[:4000]):
+            self.store.set_meta("pending_incidents", "[]")
+        else:
+            self.store.set_meta("pending_incidents", json.dumps(pending[-40:]))
 
     def _quiet_now(self) -> bool:
         q = self.cfg.get("quiet_hours")  # p.ej. [0, 8] -> de 00:00 a 08:00 llegan sin sonido
@@ -276,7 +302,7 @@ class Monitor:
         )
         if down:
             text += "\n⚠️ Con problemas: " + ", ".join(esc(d) for d in down)
-        self.tg.send_text(text)
+        self.admin.send_text(text)
         self.store.set_meta("last_heartbeat", today)
 
     def matches_now(self) -> list[Listing]:
