@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import signal
 import time
 from datetime import datetime
@@ -90,6 +91,8 @@ class Monitor:
         for src in self.sources:
             if only and src.id != only:
                 continue
+            if src.opts.get("local_only") and os.environ.get("GITHUB_ACTIONS"):
+                continue  # web que bloquea a los servidores de GitHub: solo se revisa en local
             every = int(src.opts.get("every", 1))
             if not only and (self.cycle - 1) % every != 0:
                 continue
