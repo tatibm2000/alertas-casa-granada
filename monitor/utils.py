@@ -208,6 +208,10 @@ def parse_price(text: str | None) -> Optional[int]:
     if m:
         whole = re.split(r",", m.group(0))[0]
         return int(re.sub(r"[^\d]", "", whole))
+    # 1b) miles con coma (formato inglés): 214,000 / 1,234,567
+    m = re.search(r"(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d,])", t)
+    if m:
+        return int(m.group(0).replace(",", ""))
     # 2) número simple con decimales opcionales: 395000 / 77000.00 / 77000,5
     m = re.search(r"\d+(?:[.,]\d{1,2})?", t)
     if m:
