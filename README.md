@@ -379,3 +379,21 @@ Sin servidor: GitHub ejecuta `python -m monitor once` cada 15 minutos
 Notas: GitHub puede retrasar las ejecuciones programadas unos minutos; si un repo público
 pasa 60 días sin cambios desactiva la programación (el workflow hace un commit vacío a los 45
 días para evitarlo). Si la caché se pierde, el monitor vuelve a sembrar sin reenviar todo.
+
+### Ejecución puntual cada 15 min con cron-job.org
+
+La programación de GitHub no es puntual. Para que sea cada 15 min de verdad:
+
+1. GitHub → Settings → Developer settings → Fine-grained tokens → nuevo token solo para este
+   repo con permiso **Actions: Read and write**.
+2. cron-job.org → Create cronjob → cada 15 min → `POST`
+   `https://api.github.com/repos/<usuario>/<repo>/actions/workflows/monitor.yml/dispatches`
+   con cabeceras `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+   `Content-Type: application/json` y cuerpo `{"ref":"main","inputs":{"comando":"once"}}`.
+   Respuesta correcta: 204.
+
+### Incidencias a un chat privado
+
+Secret `TELEGRAM_ADMIN_CHAT_ID` = tu id de Telegram (pulsa antes "Iniciar" en el bot). Las
+incidencias de cada ciclo llegan en un solo mensaje; de 0 a 8 h se guardan y llegan por la mañana.
+Al grupo solo van los pisos.
