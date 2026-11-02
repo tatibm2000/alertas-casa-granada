@@ -31,7 +31,9 @@ from .base import Source, unique
 log = logging.getLogger(__name__)
 
 LIST_WORDS = re.compile(r"venta|comprar|compra|inmuebles|propiedades|viviendas|buscador|resultados|listado", re.I)
-DETAIL_HINT = re.compile(r"ficha|inmueble|propiedad|property|detalle|vivienda|piso|casa|chalet|ref|/\d{3,}", re.I)
+DETAIL_HINT = re.compile(r"ficha|inmueble|propiedad|property|detalle|vivienda|piso|casa|chalet|ref|/\d{3,}|"
+                         r"atico|ático|apartamento|duplex|dúplex|adosado|pareado|estudio|loft|oportunidad|venta",
+                         re.I)
 NOT_DETAIL = re.compile(r"alquiler|contacto|aviso|legal|cookies|privacidad|blog|noticias|nosotros|empresa|"
                         r"servicios|vender|tasacion|valora|mailto:|tel:|whatsapp|facebook|instagram|twitter|"
                         r"linkedin|youtube|#", re.I)
@@ -42,7 +44,18 @@ TYPE_RE = re.compile(
     r"trastero|edificio|finca)\b",
     re.I,
 )
-PRICE_RE = re.compile(r"(\d{1,3}(?:[.\s]\d{3})+|\d{5,7})\s*(?:€|eur)", re.I)
+PRICE_RE = re.compile(r"(\d{1,3}(?:[.,\s]\d{3})+|\d{5,7})\s*(?:€|eur)", re.I)
+
+
+def _tipo(*texts: str) -> str:
+    """Tipo de inmueble: el primero que aparezca, sin contar los "con garaje", "y trastero"..."""
+    for t in texts:
+        for m in TYPE_RE.finditer(t or ""):
+            antes = (t[max(0, m.start() - 5):m.start()]).lower()
+            if re.search(r"\b(con|y|sin|de)\s+$", antes):
+                continue
+            return m.group(1).capitalize()
+    return ""
 
 
 class Generic(Source):
@@ -142,8 +155,7 @@ class Generic(Source):
             pm = PRICE_RE.search(text)
             it.price = parse_price(pm.group(1)) if pm else None
         if not it.ptype:
-            tm = TYPE_RE.search((soup.title.get_text() if soup.title else "") + " " + text[:1500])
-            it.ptype = tm.group(1).capitalize() if tm else ""
+            it.ptype = _tipo(it.title, soup.title.get_text() if soup.title else "", text[:1500])
         if not it.municipality:
             it.municipality = self._muni(text[:3000])
         og = soup.find("meta", property="og:image")
@@ -267,7 +279,6 @@ class Generic(Source):
                 continue
             ids = re.findall(r"\d{3,}", urlparse(href).path + "?" + urlparse(href).query)
             pid = ids[-1] if ids else hashlib.md5(href.encode()).hexdigest()[:12]
-            tm = TYPE_RE.search(text)
             img = box.find("img")
             photo = None
             if img is not None:
@@ -279,9 +290,9 @@ class Generic(Source):
                 self.L(
                     id=pid,
                     url=href,
-                    title=clean(title_el.get_text(" ")) if title_el else text[:140],
+                    title=(a.get("title") or "").strip() or (clean(title_el.get_text(" ")) if title_el else text[:140]),
                     municipality=self._muni(text) or self._muni(urlparse(href).path.replace("-", " ")),
-                    ptype=tm.group(1).capitalize() if tm else "",
+                    ptype=_tipo(a.get("title") or "", text),
                     price=parse_price(pm.group(1)),
                     rooms=rooms,
                     m2=m2_from_text(text),
