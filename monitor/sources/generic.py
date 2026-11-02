@@ -47,6 +47,33 @@ TYPE_RE = re.compile(
 PRICE_RE = re.compile(r"(\d{1,3}(?:[.,\s]\d{3})+|\d{5,7})\s*(?:€|eur)", re.I)
 
 
+_ID_PARAMS = ("llave", "id_inmueble", "idinmueble", "id", "ref", "referencia", "cod", "codigo", "cod_ofer")
+
+
+def _strip_pag(href: str) -> str:
+    """Quita de la URL de la ficha el número de página del listado (…&pag=6): es el mismo anuncio."""
+    u = urlparse(href)
+    if not u.query:
+        return href
+    q = [kv for kv in u.query.split("&") if kv.split("=")[0].lower() not in ("pag", "page", "pagina", "p")]
+    return u._replace(query="&".join(q)).geturl()
+
+
+def _listing_id(href: str) -> tuple[str, list]:
+    """Id del anuncio: un parámetro tipo llave=/id=/ref= si lo hay; si no, el último número largo
+    de la ruta; si no, un resumen de la URL."""
+    u = urlparse(href)
+    params = dict(kv.split("=", 1) for kv in u.query.split("&") if "=" in kv)
+    for k in _ID_PARAMS:
+        for pk, pv in params.items():
+            if pk.lower() == k and pv:
+                return pv, [pv]
+    ids = re.findall(r"\d{3,}", u.path) or re.findall(r"\d{3,}", u.query)
+    if ids:
+        return ids[-1], ids
+    return hashlib.md5(href.encode()).hexdigest()[:12], []
+
+
 def _tipo(*texts: str) -> str:
     """Tipo de inmueble: el primero que aparezca, sin contar los "con garaje", "y trastero"..."""
     for t in texts:
@@ -84,10 +111,10 @@ class Generic(Source):
         # ¿Software conocido? Delegamos y lo recordamos para los siguientes ciclos.
         delegate = self._detect(html if home_html is None else home_html + html, list_url)
         if delegate is not None:
-            self._delegate = delegate
-            items = delegate.fetch()
-            self.complete = delegate.complete
-            return self._retag(items)
+            items = self._try_delegate(delegate)
+            if items:
+                return items
+            log.info("%s: el listado detectado no trae anuncios; pruebo a leer la página", self.id)
 
         items = self.parse(html, list_url)
         if not items and self.opts.get("browser_retry", True):
@@ -112,21 +139,41 @@ class Generic(Source):
                         except Exception:  # noqa: BLE001
                             pass
                     delegate = self._detect(rendered, list_url)
-                    if delegate is None:
-                        items = self.parse(rendered, list_url)
-                        if not items:
-                            self._dump(page, rendered)
+                    items = self.parse(rendered, list_url)
+                    if not items:
+                        self._dump(page, rendered)  # por si tampoco funciona lo detectado
             except ImportError:
                 pass
             except Exception as e:  # noqa: BLE001
                 log.warning("%s: no se pudo abrir con el navegador: %s", self.id, e)
-            if delegate is not None:
-                self._delegate = delegate
-                items = delegate.fetch()
-                self.complete = delegate.complete
-                return self._retag(items)
+            if delegate is not None and not items:
+                found = self._try_delegate(delegate)
+                if found:
+                    return found
         self.complete = False
         return items
+
+    def _try_delegate(self, delegate: Source) -> list[Listing]:
+        """Usa el conector detectado. En Inmovilla prueba primero venta/?orden=5 y, si no trae
+        anuncios, la ruta que se detectó en la web. Solo se recuerda si funciona."""
+        try:
+            items = delegate.fetch()
+        except Exception as e:  # noqa: BLE001
+            log.info("%s: el conector detectado falló (%s)", self.id, e)
+            items = []
+        alt = delegate.opts.pop("alt_list_path", None)
+        if not items and delegate.kind == "inmovilla" and alt:
+            delegate.opts["list_path"] = alt
+            try:
+                items = delegate.fetch()
+            except Exception as e:  # noqa: BLE001
+                log.info("%s: la ruta %s tampoco (%s)", self.id, alt, e)
+                items = []
+        if items:
+            self._delegate = delegate
+            self.complete = delegate.complete
+            return self._retag(items)
+        return []
 
     def _dump(self, page, html: str) -> None:
         """Sin anuncios: guardamos lo que ha visto el navegador para hacerle un conector a medida."""
@@ -139,7 +186,13 @@ class Generic(Source):
             page.screenshot(path=str(dbg / f"debug_{self.id}.png"), full_page=True)
         except Exception:  # noqa: BLE001
             pass
-        log.warning("%s: no encontré anuncios. He guardado data/debug_%s.html y .png", self.id, self.id)
+        low = html.lower()
+        if any(k in low for k in ("cf-chl", "challenge-platform", "verificación de seguridad en curso",
+                                  "just a moment", "un momento…")):
+            log.warning("%s: la web muestra la verificación anti-robots de Cloudflare: no deja leerla "
+                        "desde aquí (márcala local_only si funciona en tu ordenador)", self.id)
+        else:
+            log.warning("%s: no encontré anuncios. He guardado data/debug_%s.html y .png", self.id, self.id)
 
     def enrich(self, it: Listing) -> None:
         if self._delegate is not None:
@@ -188,7 +241,7 @@ class Generic(Source):
             if re.search(r"alquil", label, re.I):
                 continue
             if re.search(r"\b(comprar|venta|en venta|inmuebles en venta)\b", label, re.I):
-                return href
+                return _strip_pag(href)  # la primera página, no la 2 
             if best is None and LIST_WORDS.search(label):
                 best = href
         return best
@@ -196,13 +249,16 @@ class Generic(Source):
     def _detect(self, html: str, page_url: str) -> Source | None:
         low = html.lower()
         # Listado de Inmovilla metido en un iframe (como Neo Patrimonial)
-        fm = re.search(r"(https?://[^\"'\s]+/frame-clientes/\d+)", html)
+        fm = re.search(r"(https?://[^\"'\s<>]+/frame-clientes/\d+)(/[^\"'\s<>]*)?", html)
         if fm:
             from .inmovilla import Inmovilla
 
-            log.info("%s: detectado iframe de Inmovilla (%s)", self.id, fm.group(1))
-            return Inmovilla(self.id, self.name, self.http,
-                             **{**self.opts, "base_url": fm.group(1), "geo_check": True})
+            log.info("%s: detectado iframe de Inmovilla (%s)", self.id, fm.group(0))
+            opts = {**self.opts, "base_url": fm.group(1), "geo_check": True}
+            rest = (fm.group(2) or "").strip("/")
+            if rest and "ficha/" not in rest:
+                opts["alt_list_path"] = rest  # la ruta exacta del iframe, si venta/?orden=5 no va
+            return Inmovilla(self.id, self.name, self.http, **opts)
         # La web de búsqueda puede estar en otro subdominio (buscador.midominio.com)
         u = urlparse(page_url)
         origin = f"{u.scheme}://{u.netloc}"
@@ -211,9 +267,10 @@ class Generic(Source):
 
             path = u.path.lstrip("/")
             opts = {**self.opts, "base_url": origin}
-            # "venta/" sin más: usamos la ruta por defecto, ordenada por "más recientes"
+            # Primero el listado estándar ordenado por "más recientes" (venta/?orden=5); la ruta
+            # detectada (a veces ordenada por precio, p. ej. venta/es/) queda de reserva.
             if path and not (path.rstrip("/") == "venta" and not u.query):
-                opts["list_path"] = path + (f"?{u.query}" if u.query else "")
+                opts["alt_list_path"] = path + (f"?{u.query}" if u.query else "")
             log.info("%s: detectado Inmovilla en %s", self.id, origin)
             return Inmovilla(self.id, self.name, self.http, **opts)
         if "houzez" in low and "wp-content" in low:
@@ -274,7 +331,7 @@ class Generic(Source):
         for a in soup.find_all("a", href=True):
             h = detail_href(a)
             if h:
-                links.setdefault(h, []).append(a)
+                links.setdefault(_strip_pag(h), []).append(a)
 
         out: list[Listing] = []
         for href, anchors in links.items():
@@ -299,8 +356,7 @@ class Generic(Source):
             pm = PRICE_RE.search(text)
             if not pm:
                 continue
-            ids = re.findall(r"\d{3,}", urlparse(href).path + "?" + urlparse(href).query)
-            pid = ids[-1] if ids else hashlib.md5(href.encode()).hexdigest()[:12]
+            pid, ids = _listing_id(href)
             img = box.find("img")
             photo = None
             if img is not None:
