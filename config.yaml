@@ -11,7 +11,7 @@ criteria:
     - cochera              # oficinas, trasteros y edificios (ya excluidos por defecto)
     - plaza de garaje
     - finca rustica
-  fallback: false           # regla de rescate: si un portal no tiene nada en rango, avisa del
+  fallback: false          # regla de rescate: si un portal no tiene nada en rango, avisa del
                            # más reciente con min_rooms+ hab y precio ≥ min_price (vivienda)
   price_drop_min_pct: 1    # avisar de bajadas de precio de al menos este %
   zona:                    # lista cerrada: solo se avisa de viviendas en estos municipios
@@ -222,6 +222,247 @@ sources:
     name: Grupo Siles
     kind: generic
     base_url: https://royalblue-eagle-337275.hostingersite.com   # web provisional
+
+  - id: alvarezsalmeron
+    name: Álvarez Salmerón
+    kind: generic
+    base_url: https://www.alvarezsalmeron.com
+    en_pruebas: true
+
+  # ---------------------------------------------------------------- añadidas (búsqueda por municipios, nov 2026)
+  # en_pruebas: true = solo se miran con "check". Cuando una funcione, borra esa línea
+  # y empezará a avisar (la primera vez registra sus anuncios en silencio).
+  # Plantilla antigua de Inmovilla (como 4Arcos): sale ordenada por precio
+  - id: homix
+    name: Homix
+    kind: inmovilla
+    base_url: https://www.homixgranada.es
+    list_path: venta.php
+    browser_sort: true
+    every: 2
+    en_pruebas: true
+
+  - id: violon
+    name: Violón Alminares
+    kind: inmovilla
+    base_url: https://www.violonalminares.com
+    list_path: venta.php
+    browser_sort: true
+    every: 2
+    en_pruebas: true
+
+  # Inmovilla (plantilla nueva, enlaces /ficha/...)
+  - id: tokyohomes
+    name: Tokyo Homes
+    kind: inmovilla
+    base_url: https://www.tokyohomes.es
+    en_pruebas: true
+
+  - id: rutaria
+    name: Rutaria
+    kind: inmovilla
+    base_url: https://www.rutariainmobiliaria.com
+    en_pruebas: true
+
+  - id: nosolopiso
+    name: Nosolopiso
+    kind: inmovilla
+    base_url: https://www.nosolopiso.com
+    en_pruebas: true
+
+  # Conector genérico (detecta Inmovilla/WordPress o lee las tarjetas)
+  - id: navygar
+    name: Grupo Navygar
+    kind: generic
+    base_url: https://gruponavygar.com
+    en_pruebas: true
+
+  - id: inmocg
+    name: Inmobiliaria CG
+    kind: generic
+    base_url: https://comprar.inmobiliariacg.com
+    en_pruebas: true
+
+  - id: ysabika
+    name: Ysabika
+    kind: generic
+    base_url: https://www.ysabika.es
+    en_pruebas: true
+
+  - id: velezcasas
+    name: Vélez Casas
+    kind: generic
+    base_url: https://www.velezcasas.com
+    en_pruebas: true
+
+  - id: naveros
+    name: Inmobiliaria Naveros
+    kind: generic
+    base_url: https://www.inmobiliarianaveros.com
+    en_pruebas: true
+
+  - id: ivercasa
+    name: Ivercasa
+    kind: generic
+    base_url: https://www.ivercasa.com
+    en_pruebas: true
+
+  - id: zuritanavarro
+    name: Zurita y Navarro
+    kind: generic
+    base_url: https://www.zuritaynavarro.es
+    en_pruebas: true
+
+  - id: globe
+    name: GLOBE Gestión Inmobiliaria
+    kind: generic
+    base_url: https://www.globegranada.es
+    en_pruebas: true
+
+  - id: uhome
+    name: U-Home
+    kind: generic
+    base_url: https://www.u-homeinmobiliaria.com
+    en_pruebas: true
+
+  - id: tibuhomes
+    name: Tibu Homes
+    kind: generic
+    base_url: https://www.tibuhomes.es
+    en_pruebas: true
+
+  - id: viviendaslocales
+    name: Viviendas y Locales Granada
+    kind: generic
+    base_url: https://www.viviendasylocalesgranada.com
+    en_pruebas: true
+
+  - id: redinmo
+    name: RED Inmobiliaria
+    kind: generic
+    base_url: https://www.redconstitucion.com
+    en_pruebas: true
+
+  - id: redall
+    name: Grupo Redall
+    kind: generic
+    base_url: https://www.gruporedall.com
+    en_pruebas: true
+
+  - id: tengotullave
+    name: Tengo tu llave
+    kind: generic
+    base_url: https://www.inmobiliariatengotullave.com
+    # local de La Zubia
+    en_pruebas: true
+
+  - id: urbanhome
+    name: Urbanhome
+    kind: generic
+    base_url: https://www.inmobiliariaurbanhome.com
+    # local de Ogíjares
+    en_pruebas: true
+
+  - id: grupolares
+    name: Grupo Lares
+    kind: generic
+    base_url: https://www.grupolares.es
+    # local de Huétor Vega
+    en_pruebas: true
+
+  - id: comerciacasa
+    name: Comerciacasa
+    kind: generic
+    base_url: https://www.comerciacasa.es
+    # local de Armilla
+    en_pruebas: true
+
+  - id: inhouse
+    name: In House Consultores
+    kind: generic
+    base_url: https://www.inhouseconsultores.com
+    # local de Armilla
+    en_pruebas: true
+
+  - id: ayg
+    name: AyG Inmobiliaria
+    kind: generic
+    base_url: https://www.inmobiliariaayg.com
+    # local de Las Gabias
+    en_pruebas: true
+
+  - id: segurjafer
+    name: Segurjafer
+    kind: generic
+    base_url: https://segurjafer.es
+    # local de Otura
+    en_pruebas: true
+
+  - id: clesamar
+    name: Clesamar
+    kind: generic
+    base_url: https://www.clesamar.es
+    # local de Otura
+    en_pruebas: true
+
+  - id: inmoalhendin
+    name: InmoAlhendín
+    kind: generic
+    base_url: https://www.inmoalhendin.com
+    # local de Alhendín
+    en_pruebas: true
+
+  - id: granahidal
+    name: Granahidal
+    kind: generic
+    base_url: https://granahidal.es
+    # local de Albolote
+    en_pruebas: true
+
+  - id: regalcredit
+    name: Regal Credit
+    kind: generic
+    base_url: https://www.racredit.es
+    # local de Cúllar Vega
+    en_pruebas: true
+
+  - id: osadia
+    name: Osadía Real Estate
+    kind: generic
+    base_url: https://www.osadiarealestate.com
+    # local de Monachil
+    en_pruebas: true
+
+  - id: inmouno
+    name: Inmobiliaria UNO
+    kind: generic
+    base_url: https://inmobiliariauno.es
+    # local de Monachil
+    en_pruebas: true
+
+  - id: idealhouse
+    name: IDEALhouse
+    kind: generic
+    base_url: https://www.inmueblesidealhouse.es
+    en_pruebas: true
+
+  - id: granalux
+    name: Granalux
+    kind: generic
+    base_url: https://www.inmogranalux.com
+    en_pruebas: true
+
+  - id: inmosg
+    name: SG Inmobiliaria
+    kind: generic
+    base_url: https://www.inmobiliariasg.com
+    en_pruebas: true
+
+  - id: grecco
+    name: Grecco
+    kind: generic
+    base_url: https://grecco.es
+    en_pruebas: true
 
   - id: century21avanza
     name: Century 21 Avanza
