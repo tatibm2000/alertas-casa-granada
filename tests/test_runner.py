@@ -162,3 +162,13 @@ def test_incidencias_esperan_a_la_mañana(tmp_path):
     mon.run_cycle()
     assert len(privado.sent) == 1      # por la mañana: todo junto
     assert "inicializadas" in privado.sent[0] and "vuelve a funcionar" in privado.sent[0]
+
+
+def test_en_pruebas_no_se_revisa_en_ciclos(tmp_path):
+    a = FakeSource("a", [L(1, 200000, 3)])
+    a.opts["en_pruebas"] = True
+    cfg = {"criteria": {"max_price": 220000, "min_rooms": 3}}
+    tg = FakeTG()
+    mon = Monitor(cfg, [a], Store(tmp_path / "t.sqlite"), tg)
+    mon.run_cycle()
+    assert tg.sent == [] and mon.store.state("a")["seeded"] in (None, 0)
