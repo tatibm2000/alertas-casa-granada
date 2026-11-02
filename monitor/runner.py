@@ -197,7 +197,7 @@ class Monitor:
                 self.store.log_alert("drop", it, fingerprint(it))
 
         # 4) regla de rescate: si este portal no tiene nada en precio, el más reciente con 3+ hab
-        if self.c.fallback and not any_match:
+        if self.c.fallback and src.opts.get("fallback", True) and not any_match:
             self._fallback(src, items, budget)
 
     # ------------------------------------------------------------------ helpers
