@@ -4,13 +4,18 @@
 #
 # Secrets necesarios (Settings → Secrets and variables → Actions):
 #   TELEGRAM_BOT_TOKEN   token del bot
-#   TELEGRAM_CHAT_ID     id del grupo (p. ej. -1004382996213)
+#   TELEGRAM_CHAT_ID     id del grupo (p. ej. -1004382996213)  -> solo pisos
+#   TELEGRAM_ADMIN_CHAT_ID  tu chat privado con el bot          -> incidencias y estado
+#
+# La programación de GitHub no es puntual (a veces pasan horas). Para que sea de verdad
+# cada 15 min, cron-job.org llama al botón "Run workflow" (ver README). El "schedule" de
+# abajo queda solo como respaldo.
 
 name: monitor
 
 on:
   schedule:
-    - cron: "4,19,34,49 * * * *"    # hora UTC; GitHub puede retrasarlo unos minutos
+    - cron: "7 */2 * * *"      # respaldo: cada 2 h (hora UTC)
   workflow_dispatch:            # botón "Run workflow" para lanzarlo a mano
     inputs:
       comando:
@@ -31,6 +36,7 @@ jobs:
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
