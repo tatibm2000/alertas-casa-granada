@@ -145,7 +145,7 @@ class Http:
         if isinstance(e, requests.exceptions.SSLError):
             return True
         if isinstance(e, requests.HTTPError) and e.response is not None:
-            return e.response.status_code in (401, 403, 406, 429, 503)
+            return e.response.status_code in (401, 403, 406, 429, 500, 502, 503)
         return False
 
     def _with_fallback(self, url: str, want_json: bool, **kw):
