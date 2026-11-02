@@ -127,15 +127,31 @@ class PisosCom(Source):
     kind = "pisoscom"
 
     def fetch(self) -> list[Listing]:
-        url = (
+        url = self.opts.get("list_url") or (
             f"{self.base_url}/buscador/en_venta/?IdMAEProvincia={self.opts.get('province_code', 'P00000000000018')}"
             f"&IdTipoOperacion=4"
         )
-        return self.parse(self.http.get_text(url), url)
+        out: list[Listing] = []
+        pages = int(self.opts.get("pages", 1))
+        for n in range(pages):
+            page_url = url if n == 0 else url + ("&" if "?" in url else "?") + f"Pagina={n}"
+            items = self.parse(self.http.get_text(page_url), page_url)
+            nuevos = [i for i in items if i.id not in {o.id for o in out}]
+            if not nuevos:
+                break
+            out += nuevos
+        self.complete = False
+        n = len(out)
+        for i, it in enumerate(out):
+            it.sort_key = f"pos{n - i:06d}"
+        return out
 
     def parse(self, html: str, page_url: str) -> list[Listing]:
+        soup = _soup(html)
+        if soup.select_one("div.rowCard [data-path*='/detalle/']"):
+            return self._parse_cards(soup, page_url)
         out = []
-        for card in _soup(html).select("div.media"):
+        for card in soup.select("div.media"):
             if card.find_parent("div", class_="media"):
                 continue
             a = card.select_one("a[href*='/detalle/']")
@@ -177,6 +193,46 @@ class PisosCom(Source):
         n = len(out)
         for i, it in enumerate(out):
             it.sort_key = f"pos{n - i:06d}"
+        return unique(out)
+
+    def _parse_cards(self, soup, page_url: str) -> list[Listing]:
+        """Otra plantilla de la misma plataforma (Inmobiliaria Joy): tarjetas div.rowCard con
+        el enlace en data-path y habitaciones/m² en una lista de iconos."""
+        out = []
+        for card in soup.select("div.rowCard"):
+            a = card.select_one("[data-path*='/detalle/']")
+            if not a:
+                continue
+            url = urljoin(page_url, a["data-path"])
+            seg = urlparse(url).path.strip("/").split("/")
+            ptype = seg[2].replace("_", " ") if len(seg) > 2 else ""
+            muni = seg[4].replace("_", " ").title() if len(seg) > 4 else ""
+            rooms = m2 = None
+            for li in card.select("ul.props li"):
+                icon = li.select_one("span[class*='icon']")
+                cls = " ".join(icon.get("class", [])) if icon else ""
+                val = li.find_all("div")[-1].get_text(" ") if li.find_all("div") else li.get_text(" ")
+                if "bed" in cls:
+                    rooms = parse_int(val)
+                elif "sup" in cls:
+                    m2 = parse_int(val)
+            price_el = card.select_one(".precio")
+            price_txt = clean(price_el.get_text(" ")).split("¡")[0] if price_el else ""
+            img = card.select_one("[style*='background-image']")
+            m = re.search(r"url\('?([^')]+)", img.get("style", "")) if img else None
+            title_el = card.select_one(".titulo")
+            out.append(
+                self.L(
+                    id=seg[-1], url=url,
+                    title=clean(title_el.get_text(" ")) if title_el else "",
+                    municipality=muni, ptype=ptype,
+                    price=parse_price(price_txt) if price_txt else None,
+                    rooms=rooms, m2=m2, photo=m.group(1) if m else None,
+                    sort_key="", province_ok=True,
+                    is_sale="en_venta" in url and "/mes" not in price_txt,
+                    needs_enrich=rooms is None and "terreno" not in ptype and "parking" not in ptype,
+                )
+            )
         return unique(out)
 
     def enrich(self, it: Listing) -> None:
