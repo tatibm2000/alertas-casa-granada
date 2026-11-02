@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="monitor")
     ap.add_argument("command", choices=["run", "once", "check", "telegram-test", "chat-id", "resumen", "estado", "ejemplo"])
     ap.add_argument("--config", default=str(ROOT / "config.yaml"))
-    ap.add_argument("--source", help="limitar a una fuente (id de config.yaml)")
+    ap.add_argument("--source", help="limitar a una o varias fuentes (ids de config.yaml separados por comas)")
     ap.add_argument("--dry-run", action="store_true", help="no envía a Telegram, imprime por pantalla")
     ap.add_argument("--fichas", type=int, default=6,
                     help="check: fichas máximas a abrir por web para completar datos (0 = ninguna)")
@@ -102,7 +102,9 @@ def main(argv: list[str] | None = None) -> int:
     http = Http()
     sources = build_sources(cfg["sources"], http)
     if a.source:
-        sources = [s for s in sources if s.id == a.source]
+        # se pueden indicar varias separadas por comas: --source homix,violon,navygar
+        wanted = [x.strip() for x in a.source.split(",") if x.strip()]
+        sources = [s for s in sources if s.id in wanted]
         if not sources:
             print(f"No existe la fuente {a.source}")
             return 1
