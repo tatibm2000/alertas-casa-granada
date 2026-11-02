@@ -89,7 +89,7 @@ class Monitor:
         self.seeded_now = []
         self.tg.silent = self._quiet_now()
         for src in self.sources:
-            if only and src.id != only:
+            if only and src.id not in only.split(","):
                 continue
             if not self._here(src):
                 continue  # web que bloquea a los servidores de GitHub: solo se revisa en local
@@ -257,7 +257,11 @@ class Monitor:
 
     @staticmethod
     def _here(src: Source) -> bool:
-        """¿Se revisa esta web aquí? (las local_only no se revisan en GitHub Actions)"""
+        """¿Se revisa esta web en los ciclos normales?
+        - en_pruebas: todavía no (solo con "check", para comprobar que se lee bien)
+        - local_only: no en GitHub Actions (la web bloquea a sus servidores)"""
+        if src.opts.get("en_pruebas"):
+            return False
         return not (src.opts.get("local_only") and os.environ.get("GITHUB_ACTIONS"))
 
     def _active_ids(self) -> set[str]:
