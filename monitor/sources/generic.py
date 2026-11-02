@@ -146,7 +146,18 @@ class Generic(Source):
             self._delegate.enrich(it)
             return
         soup = BeautifulSoup(self.http.get_text(it.url), "lxml")
+        og = soup.find("meta", property="og:image")
+        # Fuera menús, pie y "otros inmuebles": su texto confunde (habitaciones de otro piso...)
+        for tag in soup.select("header, footer, nav, aside, script, style, form, [class*=relacionad], "
+                               "[class*=similar], [class*=related], [class*=destacad], [class*=footer], "
+                               "[class*=menu], [id*=footer], [id*=menu]"):
+            tag.decompose()
         text = clean(soup.get_text(" "))
+        h1 = soup.find("h1")
+        if h1 is not None:
+            pos = text.find(clean(h1.get_text(" ")))
+            if pos > 0:
+                text = text[pos:]  # empezamos por el título del anuncio
         if it.rooms is None:
             it.rooms = rooms_from_text(text)
         if it.m2 is None:
@@ -158,7 +169,6 @@ class Generic(Source):
             it.ptype = _tipo(it.title, soup.title.get_text() if soup.title else "", text[:1500])
         if not it.municipality:
             it.municipality = self._muni(text[:3000])
-        og = soup.find("meta", property="og:image")
         if og and og.get("content") and not it.photo:
             it.photo = og["content"]
         if "alquiler" in text[:800].lower() and "venta" not in text[:800].lower():
@@ -219,14 +229,25 @@ class Generic(Source):
 
     # ------------------------------------------------------------------ HTML genérico
     def _muni(self, text: str) -> str:
-        """Primer municipio que aparece en el texto. "Granada" solo si no hay otro, porque
+        """Primer municipio que aparece en el texto, escrito con mayúscula (así "valor" no se
+        confunde con Válor ni "peligros" con Peligros). "Granada" solo si no hay otro, porque
         las webs suelen añadir la provincia: "Piso en Armilla, Granada"."""
-        t = " " + norm(text) + " "
+        raw = re.findall(r"[^\W\d_]+", text or "")
+        toks = [norm(w) for w in raw]
+        caps = [w[:1].isupper() for w in raw]
+        if not hasattr(self, "_muni_toks"):
+            self._muni_toks = [(m, norm(m).split()) for m in self._munis]
         found = []
-        for m in self._munis:
-            pos = t.find(f" {norm(m)} ")
-            if pos >= 0:
-                found.append((pos, -len(m), m))
+        for m, mt in self._muni_toks:
+            if not mt:
+                continue
+            n = len(mt)
+            for i in range(len(toks) - n + 1):
+                if toks[i:i + n] == mt and caps[i]:
+                    if mt == ["nevada"] and i > 0 and toks[i - 1] == "sierra":
+                        continue
+                    found.append((i, -n, m))
+                    break
         if not found:
             return ""
         others = [f for f in found if norm(f[2]) != "granada"]
