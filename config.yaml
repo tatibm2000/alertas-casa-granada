@@ -11,7 +11,7 @@ criteria:
     - cochera              # oficinas, trasteros y edificios (ya excluidos por defecto)
     - plaza de garaje
     - finca rustica
-  fallback: false           # regla de rescate: si un portal no tiene nada en rango, avisa del
+  fallback: true           # regla de rescate: si un portal no tiene nada en rango, avisa del
                            # más reciente con min_rooms+ hab y precio ≥ min_price (vivienda)
   price_drop_min_pct: 1    # avisar de bajadas de precio de al menos este %
   zona:                    # lista cerrada: solo se avisa de viviendas en estos municipios
@@ -51,12 +51,14 @@ sources:
     kind: inmovilla
     base_url: https://www.inmofuturo.es
     local_only: true         # bloquea a los servidores de GitHub (403): solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: invivus
     name: Invivus Granada
     kind: inmovilla
     base_url: https://www.invivusgranada.es
     local_only: true         # bloquea a los servidores de GitHub (403): solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: remaxcima
     name: RE/MAX Cima
@@ -92,6 +94,7 @@ sources:
     geo_check: true
     every: 2                 # usa navegador: cada 2 ciclos (30 min)
     local_only: true         # bloquea a los servidores de GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: tecnocasa
     name: Tecnocasa
@@ -112,19 +115,12 @@ sources:
     kind: inmovilla
     base_url: https://www.jymgestioninmobiliaria.es
     local_only: true         # bloquea a los servidores de GitHub (403): solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: inmoaire
     name: InmoAire
     kind: inmovilla
     base_url: https://www.inmoaire.es
-
-  - id: ventaria
-    name: Ventaria
-    kind: ventaria
-    base_url: https://ventaria.es
-    # Su cortafuegos bloquea también al navegador automático (403). Desactivada de momento;
-    # pon enabled: true para volver a probarla más adelante.
-    enabled: false
 
   - id: comprarcasa
     name: Comprarcasa Portal Home
@@ -154,13 +150,6 @@ sources:
 
   # Las siguientes usan el conector genérico: detecta el software (Inmovilla, WordPress...)
   # o lee las tarjetas del HTML. Compruébalas con: python -m monitor check --source <id>
-  - id: indefundu
-    name: Indefundu
-    kind: generic
-    base_url: https://www.indefundu.com
-    # www.indefundu.com no existe (el dominio no responde). Pon aquí la web correcta y enabled: true
-    enabled: false
-
   - id: granatte
     name: Granatte
     kind: generic
@@ -205,13 +194,7 @@ sources:
     list_path: venta/es/
     geo_check: true          # también publica en Almería
     local_only: true         # bloquea a los servidores de GitHub (403): solo se revisa en local
-
-  - id: mjluna
-    name: Mjluna Asesores
-    kind: generic
-    base_url: https://www.mjlunaasesores.com
-    # su web es solo de presentación: no publica anuncios
-    enabled: false
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: inmoreal
     name: Inmobiliaria Real
@@ -227,11 +210,8 @@ sources:
     name: Álvarez Salmerón
     kind: generic
     base_url: https://www.alvarezsalmeron.com
-    en_pruebas: true
 
   # ---------------------------------------------------------------- añadidas (búsqueda por municipios, nov 2026)
-  # en_pruebas: true = solo se miran con "check". Cuando una funcione, borra esa línea
-  # y empezará a avisar (la primera vez registra sus anuncios en silencio).
   # Plantilla antigua de Inmovilla (como 4Arcos): sale ordenada por precio
   - id: homix
     name: Homix
@@ -245,7 +225,6 @@ sources:
     name: Violón Alminares
     kind: generic             # con venta.php no salió nada: que detecte el listado solo
     base_url: https://www.violonalminares.com
-    en_pruebas: true
 
   # Inmovilla (plantilla nueva, enlaces /ficha/...)
   - id: tokyohomes
@@ -264,12 +243,6 @@ sources:
     base_url: https://www.nosolopiso.com
 
   # Conector genérico (detecta Inmovilla/WordPress o lee las tarjetas)
-  - id: navygar
-    name: Grupo Navygar
-    kind: generic
-    base_url: https://gruponavygar.com
-    en_pruebas: true
-
   - id: inmocg
     name: Inmobiliaria CG
     kind: generic
@@ -277,50 +250,44 @@ sources:
     # su buscador también está en rkgranada.com
     base_url: https://www.comprar.rkgranada.com
     list_url: https://www.comprar.rkgranada.com/es/
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: ysabika
     name: Ysabika
     kind: generic
     base_url: https://www.ysabika.es
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: velezcasas
     name: Vélez Casas
     kind: generic
     base_url: https://www.velezcasas.com
     local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: naveros
     name: Inmobiliaria Naveros
     kind: generic
     base_url: https://www.inmobiliarianaveros.com
-    en_pruebas: true
 
   - id: ivercasa
     name: Ivercasa
     kind: generic
     base_url: https://www.ivercasa.com
-    en_pruebas: true
-
-  - id: zuritanavarro
-    name: Zurita y Navarro
-    kind: generic
-    base_url: https://www.zuritaynavarro.es
-    list_url: https://www.zuritaynavarro.es/ventas.asp?tipo=venta&c=25738
-    en_pruebas: true
 
   - id: globe
     name: GLOBE Gestión Inmobiliaria
     kind: generic
     base_url: https://www.globegranada.es
-    en_pruebas: true
 
   - id: uhome
     name: U-Home
     kind: generic
     base_url: https://www.u-homeinmobiliaria.com
     local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: tibuhomes
     name: Tibu Homes
@@ -337,12 +304,12 @@ sources:
     kind: generic
     base_url: https://www.redconstitucion.com
     local_only: true         # 403 + portada sin anuncios desde GitHub (anti-robots): solo en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: redall
     name: Grupo Redall
     kind: generic
     base_url: https://www.gruporedall.com
-    en_pruebas: true
 
   - id: tengotullave
     name: Tengo tu llave
@@ -350,6 +317,7 @@ sources:
     base_url: https://www.inmobiliariatengotullave.com
     # local de La Zubia
     local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: urbanhome
     name: Urbanhome
@@ -357,13 +325,7 @@ sources:
     base_url: https://www.inmobiliariaurbanhome.com
     # local de Ogíjares
     local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
-
-  - id: grupolares
-    name: Grupo Lares
-    kind: generic
-    base_url: https://www.grupolares.es
-    # local de Huétor Vega
-    en_pruebas: true
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: comerciacasa
     name: Comerciacasa
@@ -383,6 +345,7 @@ sources:
     base_url: https://www.inmobiliariaayg.com
     # local de Las Gabias
     local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: segurjafer
     name: Segurjafer
@@ -395,7 +358,8 @@ sources:
     kind: generic
     base_url: https://www.clesamar.es
     # local de Otura
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: inmoalhendin
     name: InmoAlhendín
@@ -403,27 +367,13 @@ sources:
     base_url: https://www.inmoalhendin.com
     # local de Alhendín
     local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
-
-  - id: granahidal
-    name: Granahidal
-    kind: generic
-    base_url: https://granahidal.es
-    # local de Albolote
-    en_pruebas: true
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: regalcredit
     name: Regal Credit
     kind: generic
     base_url: https://www.racredit.es
     # local de Cúllar Vega
-
-  - id: osadia
-    name: Osadía Real Estate
-    kind: generic
-    base_url: https://www.osadiarealestate.com
-    list_url: https://www.osadiarealestate.com/property-category/en-venta
-    # local de Monachil
-    en_pruebas: true
 
   - id: inmouno
     name: Inmobiliaria UNO
@@ -440,26 +390,16 @@ sources:
     name: Granalux
     kind: generic
     base_url: https://www.inmogranalux.com
-    en_pruebas: true
+    local_only: true         # Cloudflare bloquea a GitHub: solo se revisa en local
+    fallback: false          # sin regla de rescate en las webs que solo se revisan en local
 
   - id: inmosg
     name: SG Inmobiliaria
     kind: inmovilla           # su /venta/es/ sale ordenado por precio: usamos venta/?orden=5
     base_url: https://www.inmobiliariasg.com
-    en_pruebas: true
 
   - id: grecco
     name: Grecco
     kind: generic
     base_url: https://grecco.es
     list_url: https://grecco.es/ventas.asp?tipo=venta&c=79
-    en_pruebas: true
-
-  - id: century21avanza
-    name: Century 21 Avanza
-    kind: generic
-    base_url: https://www.century21.es
-    # Es la web nacional: hace falta la URL del listado de la oficina Avanza (Arabial).
-    # Cuando la tengas, ponla en list_url y cambia enabled a true.
-    # list_url: https://www.century21.es/...
-    enabled: false
