@@ -91,7 +91,7 @@ class Monitor:
         for src in self.sources:
             if only and src.id != only:
                 continue
-            if src.opts.get("local_only") and os.environ.get("GITHUB_ACTIONS"):
+            if not self._here(src):
                 continue  # web que bloquea a los servidores de GitHub: solo se revisa en local
             every = int(src.opts.get("every", 1))
             if not only and (self.cycle - 1) % every != 0:
@@ -255,6 +255,14 @@ class Monitor:
                                 last_ok=datetime.now(self.tz).isoformat(timespec="seconds"), last_count=n)
         log.info("%s: %d anuncios", src.id, n)
 
+    @staticmethod
+    def _here(src: Source) -> bool:
+        """¿Se revisa esta web aquí? (las local_only no se revisan en GitHub Actions)"""
+        return not (src.opts.get("local_only") and os.environ.get("GITHUB_ACTIONS"))
+
+    def _active_ids(self) -> set[str]:
+        return {s.id for s in self.sources if self._here(s)}
+
     def flush_incidents(self) -> None:
         """Todas las incidencias del ciclo en UN mensaje al chat privado. En horas de
         silencio no se manda nada: se guardan y salen en el primer ciclo de la mañana."""
@@ -292,7 +300,9 @@ class Monitor:
         today = now.date().isoformat()
         if now.hour < int(hour) or self.store.get_meta("last_heartbeat") == today:
             return
-        states = self.store.all_states()
+        # solo las webs que se revisan aquí (fuera las desactivadas y las local_only en GitHub)
+        activas = self._active_ids()
+        states = [s for s in self.store.all_states() if s["source"] in activas]
         ok = [s for s in states if not s["alerted_down"]]
         down = [self.names.get(s["source"], s["source"]) for s in states if s["alerted_down"]]
         n_match = len(self.matches_now())
@@ -314,8 +324,8 @@ class Monitor:
         for r in rows:
             it = row_to_listing(r)
             src = next((s for s in self.sources if s.id == it.source), None)
-            if src is None:
-                continue
+            if src is None or not self._here(src):
+                continue  # web desactivada o que aquí no se revisa: sus datos pueden estar viejos
             it.province_ok = None if src.geo_check else True
             if matches(it, self.c):
                 out.append(it)
