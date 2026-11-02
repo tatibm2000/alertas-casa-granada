@@ -87,7 +87,7 @@ def test_flow(tmp_path):
     a.fail = True
     mon.run_cycle()
     mon.run_cycle()
-    assert sum("falla desde hace" in m for m in tg.sent) == 1
+    assert sum("falla en los últimos" in m for m in tg.sent) == 1
     a.fail = False
     mon.run_cycle()
     assert any("vuelve a funcionar" in m for m in tg.sent)
@@ -128,3 +128,37 @@ def test_backfill_is_silent_then_new_alerts(tmp_path):
     src.items.append(L(3, 150000, 3))
     mon.run_cycle()          # uno nuevo de verdad: sí avisa, con los datos de la ficha
     assert any("NUEVO" in m and "150.000" in m for m in tg.sent)
+
+
+def test_incidencias_a_chat_privado_y_en_un_mensaje(tmp_path):
+    a = FakeSource("a", [L(1, 200000, 3)])
+    b = FakeSource("b", [L(10, 250000, 3, "Maracena")])
+    cfg = {"criteria": {"max_price": 220000, "min_rooms": 3}, "fail_alert_after": 2}
+    grupo, privado = FakeTG(), FakeTG()
+    mon = Monitor(cfg, [a, b], Store(tmp_path / "t.sqlite"), grupo, privado)
+    mon.run_cycle()
+    assert grupo.sent == [] and "inicializadas" in privado.sent[0]
+    privado.sent.clear()
+    a.fail = b.fail = True
+    mon.run_cycle()
+    mon.run_cycle()
+    # dos webs caídas -> un solo mensaje con las dos, y nada al grupo
+    assert len(privado.sent) == 1 and "A" in privado.sent[0] and "B" in privado.sent[0]
+    assert grupo.sent == []
+
+
+def test_incidencias_esperan_a_la_mañana(tmp_path):
+    a = FakeSource("a", [L(1, 200000, 3)])
+    cfg = {"criteria": {"max_price": 220000, "min_rooms": 3}, "fail_alert_after": 1}
+    grupo, privado = FakeTG(), FakeTG()
+    mon = Monitor(cfg, [a], Store(tmp_path / "t.sqlite"), grupo, privado)
+    mon._quiet_now = lambda: True
+    mon.run_cycle()
+    a.fail = True
+    mon.run_cycle()
+    assert privado.sent == []          # de noche: nada
+    mon._quiet_now = lambda: False
+    a.fail = False
+    mon.run_cycle()
+    assert len(privado.sent) == 1      # por la mañana: todo junto
+    assert "inicializadas" in privado.sent[0] and "vuelve a funcionar" in privado.sent[0]
