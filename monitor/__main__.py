@@ -86,9 +86,17 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     tg = Telegram(token, chat, dry_run=a.dry_run)
+    # Incidencias y estado del monitor a un chat aparte (tu conversación con el bot).
+    # Si no se indica, van al mismo grupo.
+    admin_chat = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+    admin = Telegram(token, admin_chat, dry_run=a.dry_run) if admin_chat else tg
     if a.command == "telegram-test":
         ok = tg.send_text("👋 Hola, soy el monitor de viviendas de Granada. Si leéis esto, el bot está bien configurado.")
-        print("Enviado" if ok else "Error enviando (revisa el token, el id y que el bot esté en el grupo)")
+        print("Grupo: " + ("enviado" if ok else "error (revisa el token, el id y que el bot esté en el grupo)"))
+        if admin is not tg:
+            ok2 = admin.send_text("👋 Aquí te llegarán las incidencias del monitor (webs caídas, estado diario).")
+            print("Chat privado: " + ("enviado" if ok2 else "error (¿has pulsado Iniciar en el chat con el bot?)"))
+            ok = ok and ok2
         return 0 if ok else 1
 
     http = Http()
@@ -108,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     if not db.is_absolute():
         db = ROOT / db
     store = Store(db)
-    mon = Monitor(cfg, sources, store, tg)
+    mon = Monitor(cfg, sources, store, tg, admin)
 
     if a.command == "run":
         mon.run_forever()
