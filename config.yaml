@@ -49,12 +49,16 @@ sources:
   - id: inmofuturo
     name: Inmofuturo
     kind: inmovilla
-    base_url: https://www.inmofuturo.es
+    # su web bloquea a los servidores (GitHub): leemos la página de Inmovilla de la agencia 6538
+    base_url: https://www.webparainmobiliarias.com.es/frame-clientes/6538
+    public_url: https://www.inmofuturo.es      # los enlaces de los avisos apuntan a su web
 
   - id: invivus
     name: Invivus Granada
     kind: inmovilla
-    base_url: https://www.invivusgranada.es
+    # su web bloquea a los servidores (GitHub): leemos la página de Inmovilla de la agencia 10025
+    base_url: https://www.webparainmobiliarias.com.es/frame-clientes/10025
+    public_url: https://www.invivusgranada.es      # los enlaces de los avisos apuntan a su web
 
   - id: remaxcima
     name: RE/MAX Cima
@@ -107,7 +111,9 @@ sources:
   - id: jym
     name: JyM Gestión Inmobiliaria
     kind: inmovilla
-    base_url: https://www.jymgestioninmobiliaria.es
+    # su web bloquea a los servidores (GitHub): leemos la página de Inmovilla de la agencia 9395
+    base_url: https://www.webparainmobiliarias.com.es/frame-clientes/9395
+    public_url: https://www.jymgestioninmobiliaria.es      # los enlaces de los avisos apuntan a su web
 
   - id: inmoaire
     name: InmoAire
@@ -189,18 +195,25 @@ sources:
 
   - id: joy
     name: Inmobiliaria Joy
-    kind: generic
+    kind: pisoscom           # misma plataforma que InmoZafiro (otra plantilla)
     base_url: https://www.inmojoy.com
+    list_url: https://www.inmojoy.com/buscador/
+    pages: 10                # ordena por precio: se leen todas sus páginas (son pocas)
 
   - id: vivalis
     name: Vivalis Inmobiliaria
-    kind: generic
-    base_url: https://vivalis.net
+    kind: inmovilla
+    # su web bloquea a los servidores (GitHub): página de Inmovilla de la agencia 11755
+    base_url: https://www.webparainmobiliarias.com.es/frame-clientes/11755
+    public_url: https://www.vivalis.net
+    geo_check: true          # también publica en Almería
 
   - id: mjluna
     name: Mjluna Asesores
     kind: generic
     base_url: https://www.mjlunaasesores.com
+    # su web es solo de presentación: no publica anuncios
+    enabled: false
 
   - id: inmoreal
     name: Inmobiliaria Real
