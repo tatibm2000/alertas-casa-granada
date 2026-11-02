@@ -19,7 +19,7 @@ on:
   workflow_dispatch:            # botón "Run workflow" para lanzarlo a mano
     inputs:
       comando:
-        description: "once (ciclo normal), resumen, ejemplo, estado o telegram-test"
+        description: "once (ciclo normal), resumen, ejemplo, estado, telegram-test o check --source id1,id2 (prueba)"
         default: once
 
 concurrency:                    # nunca dos ejecuciones a la vez (compartirían la BD)
@@ -70,6 +70,16 @@ jobs:
 
       - name: Ejecutar monitor
         run: python -m monitor ${{ github.event.inputs.comando || 'once' }}
+
+      # Con "check": las páginas de diagnóstico (webs sin anuncios) se pueden descargar
+      # al final de la ejecución, en "Artifacts".
+      - name: Guardar diagnósticos
+        if: always() && hashFiles('data/debug_*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnosticos
+          path: data/debug_*
+          retention-days: 7
 
       - name: Guardar base de datos
         if: always() && hashFiles('data/monitor.sqlite') != ''
