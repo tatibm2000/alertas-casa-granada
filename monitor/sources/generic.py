@@ -211,7 +211,8 @@ class Generic(Source):
 
             path = u.path.lstrip("/")
             opts = {**self.opts, "base_url": origin}
-            if path:
+            # "venta/" sin más: usamos la ruta por defecto, ordenada por "más recientes"
+            if path and not (path.rstrip("/") == "venta" and not u.query):
                 opts["list_path"] = path + (f"?{u.query}" if u.query else "")
             log.info("%s: detectado Inmovilla en %s", self.id, origin)
             return Inmovilla(self.id, self.name, self.http, **opts)
