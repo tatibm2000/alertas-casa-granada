@@ -75,12 +75,19 @@ class Inmovilla(Source):
                 except Exception:  # noqa: BLE001
                     log.warning("%s: no encontré el orden 'Más recientes'; leo el listado tal cual", self.id)
                     return None
-            try:
-                page.wait_for_load_state("networkidle", timeout=15000)
-            except Exception:  # noqa: BLE001
-                pass
-            page.wait_for_timeout(2500)
-            return page.content()
+            # al elegir el orden la página se recarga: esperamos a que termine antes de leerla
+            for _ in range(6):
+                try:
+                    page.wait_for_load_state("load", timeout=15000)
+                    page.wait_for_load_state("networkidle", timeout=10000)
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(1500)
+                try:
+                    return page.content()
+                except Exception:  # noqa: BLE001  ("the page is navigating")
+                    continue
+            return None
 
     def parse_list(self, html: str, page_url: str) -> list[Listing]:
         soup = BeautifulSoup(html, "lxml")
@@ -110,6 +117,7 @@ class Inmovilla(Source):
             m = FICHA_RE.search(full)
             if not m:
                 continue
+            full = self._public(full)
             ptype, muni, zona, _agency, pid = m.groups()
             # Contenedor de la tarjeta: subimos hasta tener el precio, sin mezclar otros anuncios.
             # (Inmovilla tiene varias plantillas: "paginacion-ficha", "paginacion-ficha-contenedorprincipal-4"...)
@@ -157,8 +165,22 @@ class Inmovilla(Source):
             )
         return unique(out)
 
+    def _public(self, url: str) -> str:
+        """Leemos por la página de Inmovilla (frame-clientes) pero en el aviso ponemos
+        el enlace de la web de la agencia, que es más claro para el grupo."""
+        pub = self.opts.get("public_url")
+        if pub and "ficha/" in url:
+            return pub.rstrip("/") + "/" + url[url.index("ficha/"):]
+        return url
+
+    def _fetch_url(self, url: str) -> str:
+        pub = self.opts.get("public_url")
+        if pub and url.startswith(pub.rstrip("/")) and "ficha/" in url:
+            return f"{self.base_url}/" + url[url.index("ficha/"):]
+        return url
+
     def enrich(self, it: Listing) -> None:
-        html = self.http.get_text(it.url)
+        html = self.http.get_text(self._fetch_url(it.url))
         soup = BeautifulSoup(html, "lxml")
         carac = {}
         for span in soup.select("span.caracteristica"):
