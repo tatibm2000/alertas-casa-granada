@@ -11,7 +11,8 @@ criteria:
     - cochera              # oficinas, trasteros y edificios (ya excluidos por defecto)
     - plaza de garaje
     - finca rustica
-  fallback: true           # regla de rescate: si un portal no tiene nada en rango, avisa del
+  fallback: false          # regla de rescate DESACTIVADA: solo avisa de pisos dentro del rango
+                           # (true = si un portal no tiene nada en rango, avisa del
                            # más reciente con min_rooms+ hab y precio ≥ min_price (vivienda)
   price_drop_min_pct: 1    # avisar de bajadas de precio de al menos este %
   zona:                    # lista cerrada: solo se avisa de viviendas en estos municipios
