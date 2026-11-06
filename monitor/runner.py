@@ -83,7 +83,43 @@ class Monitor:
     def stop(self) -> None:
         self._stop = True
 
+    # ------------------------------------------------------------------ comandos de Telegram
+    COMMANDS = [("resumen", "Todas las viviendas que cumplen ahora, por inmobiliaria")]
+
+    def read_commands(self) -> set[str]:
+        """Lee los mensajes nuevos del bot y devuelve los chats que han pedido /resumen.
+        Solo se atiende /resumen y solo desde el grupo o el chat privado configurados;
+        todo lo demás se ignora. Se guarda el último mensaje leído para no repetir."""
+        if getattr(self.tg, "dry_run", True) or not getattr(self.tg, "token", ""):
+            return set()
+        if self.store.get_meta("commands_set") != "1":
+            if self.tg.set_commands(self.COMMANDS):
+                self.store.set_meta("commands_set", "1")
+        try:
+            offset = int(self.store.get_meta("tg_offset") or 0) or None
+        except ValueError:
+            offset = None
+        updates = self.tg.get_updates(offset)
+        allowed = {str(self.tg.chat_id), str(self.admin.chat_id)}
+        chats: set[str] = set()
+        last = None
+        for u in updates:
+            last = u.get("update_id", last)
+            m = u.get("message") or u.get("edited_message") or {}
+            text = (m.get("text") or "").strip()
+            chat = str((m.get("chat") or {}).get("id", ""))
+            cmd = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
+            if cmd == "/resumen" and chat in allowed:
+                chats.add(chat)
+        if last is not None:
+            self.store.set_meta("tg_offset", str(last + 1))
+            self.store.commit()
+        if chats:
+            log.info("/resumen pedido desde %d chat(s)", len(chats))
+        return chats
+
     def run_cycle(self, only: str | None = None) -> None:
+        pedidos = self.read_commands() if not only else set()
         self.cycle += 1
         self.store.set_meta("cycle", str(self.cycle))
         self.seeded_now = []
@@ -113,6 +149,8 @@ class Monitor:
             )
         self.flush_incidents()
         self.heartbeat()
+        for chat in pedidos:  # al final, para que el resumen lleve lo recién leído
+            self.send_digest(chat)
         self.store.commit()
 
     # ------------------------------------------------------------------ una fuente
@@ -124,6 +162,7 @@ class Monitor:
             self._on_failure(src, state, f"{type(e).__name__}: {e}")
             return
         if not items:
+            self._dump_last_page(src)
             empties = (state["empties"] or 0) + 1
             self.store.update_state(src.id, empties=empties)
             log.warning("%s: 0 anuncios (%d veces seguidas)", src.id, empties)
@@ -256,6 +295,23 @@ class Monitor:
         log.info("%s: %d anuncios", src.id, n)
 
     @staticmethod
+    def _dump_last_page(src: Source) -> None:
+        """Web sin anuncios: guardamos la última página que se descargó (data/debug_<id>.html)
+        para ver si es un bloqueo o un cambio de diseño. En GitHub queda en Artifacts."""
+        last = getattr(src.http, "last_page", None)
+        if not last:
+            return
+        try:
+            from pathlib import Path
+
+            d = Path("data")
+            d.mkdir(exist_ok=True)
+            url, html = last
+            (d / f"debug_{src.id}.html").write_text(f"<!-- {url} -->\n{html}", encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
     def _here(src: Source) -> bool:
         """¿Se revisa esta web en los ciclos normales?
         - en_pruebas: todavía no (solo con "check", para comprobar que se lee bien)
@@ -335,25 +391,48 @@ class Monitor:
                 out.append(it)
         return out
 
-    def send_digest(self) -> int:
-        items = sorted(self.matches_now(), key=lambda x: (x.price or 0))
+    def send_digest(self, chat: str | None = None) -> int:
+        """TODAS las viviendas que cumplen ahora, agrupadas por inmobiliaria (solo las que
+        tienen alguna) y ordenadas por precio. Se parte en varios mensajes si no cabe."""
+        items = self.matches_now()
+        precio = (f"{msg.eur(self.c.min_price)}–{msg.eur(self.c.max_price)}" if self.c.min_price
+                  else f"≤ {msg.eur(self.c.max_price)}")
         if not items:
-            self.tg.send_text("No hay ahora mismo ningún anuncio que cumpla el filtro.")
+            self.tg.send_text(f"📋 <b>Resumen</b>\nAhora mismo no hay ninguna vivienda que cumpla "
+                              f"({precio}, {self.c.min_rooms}+ hab).", chat_id=chat)
             return 0
-        header = (f"📋 <b>Resumen</b>: {len(items)} viviendas ≤ {msg.eur(self.c.max_price)} "
-                  f"con {self.c.min_rooms}+ hab\n\n")
-        lines = [
-            f'• <b>{msg.eur(i.price)}</b> · {esc(msg.tipo(i))} · {i.rooms} hab{f" · {i.m2} m²" if i.m2 else ""} · {esc(i.municipality)} '
-            f'({esc(self.names.get(i.source, i.source))}) <a href="{esc(i.url)}">ver</a>'
-            for i in items
+        grupos: dict[str, list[Listing]] = {}
+        for it in items:
+            grupos.setdefault(self.names.get(it.source, it.source), []).append(it)
+        # inmobiliarias con más viviendas primero; dentro, de más barata a más cara
+        orden = sorted(grupos.items(), key=lambda kv: (-len(kv[1]), kv[0].lower()))
+        now = datetime.now(self.tz)
+        bloques = [
+            f"📋 <b>Resumen {now:%d/%m %H:%M}</b>\n"
+            f"{len(items)} viviendas en {len(grupos)} inmobiliarias · {precio} · {self.c.min_rooms}+ hab\n"
+            f"<i>(si varias inmobiliarias anuncian la misma vivienda, sale en cada una)</i>"
         ]
-        chunk, size = [], len(header)
-        for line in lines:
-            if size + len(line) > 3800:
-                self.tg.send_text(header + "\n".join(chunk))
-                header, chunk, size = "", [], 0
-            chunk.append(line)
-            size += len(line) + 1
-        if chunk:
-            self.tg.send_text(header + "\n".join(chunk))
+        for nombre, lista in orden:
+            lineas = [f"🏢 <b>{esc(nombre)}</b> ({len(lista)})"]
+            for i in sorted(lista, key=lambda x: x.price or 0):
+                datos = " · ".join(x for x in (
+                    f"{i.rooms} hab" if i.rooms is not None else "",
+                    f"{i.m2} m²" if i.m2 else "",
+                ) if x)
+                lineas.append(
+                    f'  • <b>{msg.eur(i.price)}</b> · {esc(msg.tipo(i))} en {esc(i.municipality or "?")}'
+                    f'{" · " + datos if datos else ""} · <a href="{esc(i.url)}">ver</a>'
+                )
+            bloques.append("\n".join(lineas))
+        # Telegram admite 4096 caracteres por mensaje: juntamos bloques sin partir una inmobiliaria
+        mensajes, actual = [], ""
+        for b in bloques:
+            if actual and len(actual) + len(b) + 2 > 3900:
+                mensajes.append(actual)
+                actual = ""
+            actual = f"{actual}\n\n{b}" if actual else b
+        if actual:
+            mensajes.append(actual)
+        for m in mensajes:
+            self.tg.send_text(m, chat_id=chat)
         return len(items)
