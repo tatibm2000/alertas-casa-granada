@@ -12,8 +12,9 @@ class FakeTG:
         self.sent = []
         self.silent = False
 
-    def send_text(self, text, preview=False):
+    def send_text(self, text, preview=False, chat_id=None):
         self.sent.append(text)
+        self.to = getattr(self, "to", []) + [chat_id]
         return True
 
     def send_listing(self, caption, photo, page_url=None):
@@ -172,3 +173,47 @@ def test_en_pruebas_no_se_revisa_en_ciclos(tmp_path):
     mon = Monitor(cfg, [a], Store(tmp_path / "t.sqlite"), tg)
     mon.run_cycle()
     assert tg.sent == [] and mon.store.state("a")["seeded"] in (None, 0)
+
+
+
+class CmdTG(FakeTG):
+    """Telegram de prueba con mensajes entrantes."""
+
+    def __init__(self, chat_id, updates):
+        super().__init__()
+        self.chat_id, self.token, self.dry_run = chat_id, "x", False
+        self.updates, self.offsets = updates, []
+
+    def get_updates(self, offset=None):
+        self.offsets.append(offset)
+        return [u for u in self.updates if offset is None or u["update_id"] >= offset]
+
+    def set_commands(self, commands):
+        return True
+
+
+def _upd(uid, chat, text):
+    return {"update_id": uid, "message": {"chat": {"id": chat}, "text": text}}
+
+
+def test_comando_resumen_agrupado_por_inmobiliaria(tmp_path):
+    a = FakeSource("a", [L(1, 200000, 3), L(2, 150000, 4, "Armilla"), L(9, 300000, 3)])
+    b = FakeSource("b", [L(5, 120000, 3, "Ogíjares")])
+    c = FakeSource("c", [L(7, 500000, 4)])  # nada que cumpla: no debe salir
+    a.name, b.name, c.name = "Agencia A", "Agencia B", "Agencia C"
+    cfg = {"criteria": {"max_price": 220000, "min_price": 100000, "min_rooms": 3}}
+    ups = [_upd(10, -100, "hola, ¿habéis visto el de Armilla?"), _upd(11, -100, "/resumen@MiBot"),
+           _upd(12, -100, "/resumen"), _upd(13, 555, "/resumen"), _upd(14, -100, "/otro")]
+    tg = CmdTG("-100", ups)
+    mon = Monitor(cfg, [a, b, c], Store(tmp_path / "t.sqlite"), tg)
+    mon.run_cycle()
+    texto = "\n".join(m for m in tg.sent if "Resumen" in m)
+    # un único resumen, al grupo (el 555 no está autorizado), con las 3 que cumplen
+    assert sum("Resumen" in m for m in tg.sent) == 1 and "-100" in tg.to
+    assert "3 viviendas en 2 inmobiliarias" in texto
+    assert "Agencia A" in texto and "Agencia B" in texto and "Agencia C" not in texto
+    assert texto.index("150.000") < texto.index("200.000")  # dentro, por precio
+    # el siguiente ciclo no repite: lee desde el último mensaje + 1
+    tg.sent.clear()
+    mon.run_cycle()
+    assert tg.offsets[-1] == 15 and not any("Resumen" in m for m in tg.sent)
