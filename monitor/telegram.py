@@ -68,9 +68,9 @@ class Telegram:
             return data
         return None
 
-    def send_text(self, text: str, preview: bool = False) -> bool:
+    def send_text(self, text: str, preview: bool = False, chat_id: str | None = None) -> bool:
         res = self._call("sendMessage", {
-            "chat_id": self.chat_id, "text": text[:4096], "parse_mode": "HTML",
+            "chat_id": chat_id or self.chat_id, "text": text[:4096], "parse_mode": "HTML",
             "disable_notification": self.silent,
             "link_preview_options": {"is_disabled": not preview},
         })
@@ -108,9 +108,23 @@ class Telegram:
             log.warning("No se pudo mandar la foto %s: va solo el texto", photo)
         return self.send_text(caption, preview=True)
 
-    def get_updates(self) -> list[dict]:
-        r = requests.get(f"{self.api}/getUpdates", timeout=30)
-        return r.json().get("result", [])
+    def get_updates(self, offset: int | None = None) -> list[dict]:
+        """Mensajes que ha recibido el bot (Telegram los guarda 24 h). Con offset, solo los
+        posteriores a ese número, y Telegram olvida los anteriores."""
+        params = {"timeout": 0}
+        if offset is not None:
+            params["offset"] = offset
+        try:
+            r = requests.get(f"{self.api}/getUpdates", params=params, timeout=30)
+            return r.json().get("result", []) or []
+        except Exception as e:  # noqa: BLE001
+            log.warning("No se pudieron leer los mensajes del bot: %s", e)
+            return []
+
+    def set_commands(self, commands: list[tuple[str, str]]) -> bool:
+        """Menú de comandos que sale al escribir "/" en Telegram."""
+        res = self._call("setMyCommands", {"commands": [{"command": c, "description": d} for c, d in commands]})
+        return bool(res and res.get("ok"))
 
 
 def esc(s: str | None) -> str:
