@@ -10,6 +10,11 @@
 # La programación de GitHub no es puntual (a veces pasan horas). Para que sea de verdad
 # cada 15 min, cron-job.org llama al botón "Run workflow" (ver README). El "schedule" de
 # abajo queda solo como respaldo.
+#
+# El job corre dentro de la imagen oficial de Playwright (ya trae Chromium y sus
+# dependencias instaladas), así evitamos el "apt install" que a veces falla por
+# problemas de DNS en los servidores de Ubuntu de GitHub. La versión de la imagen
+# (v1.65.0) debe coincidir con la versión fijada en requirements.txt.
 
 name: monitor
 
@@ -32,6 +37,8 @@ permissions:
 jobs:
   ciclo:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.65.0-noble
     timeout-minutes: 30
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -41,31 +48,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
       - name: Instalar dependencias
         run: pip install -r requirements.txt
-
-      - name: Caché del navegador (Playwright)
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
-
-      # A veces los servidores de paquetes de Ubuntu fallan al resolver DNS dentro del
-      # runner de GitHub (fallo de su infraestructura, no nuestro). Reintentamos varias
-      # veces con una pequeña espera antes de rendirnos.
-      - name: Instalar Chromium
-        run: |
-          for i in 1 2 3 4 5; do
-            python -m playwright install --with-deps chromium && exit 0
-            echo "Intento $i falló, reintentando en 20s..."
-            sleep 20
-          done
-          exit 1
 
       # La base de datos vive en la caché de Actions: cada ejecución restaura la última
       # y guarda una nueva. Si algún día se perdiera, el monitor vuelve a "sembrar" en
@@ -104,6 +88,7 @@ jobs:
           last=$(git log -1 --format=%ct)
           now=$(date +%s)
           if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            git config --global --add safe.directory "$GITHUB_WORKSPACE"
             git config user.name "monitor-bot"
             git config user.email "monitor-bot@users.noreply.github.com"
             git commit --allow-empty -m "keepalive"
