@@ -55,8 +55,17 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
+      # A veces los servidores de paquetes de Ubuntu fallan al resolver DNS dentro del
+      # runner de GitHub (fallo de su infraestructura, no nuestro). Reintentamos varias
+      # veces con una pequeña espera antes de rendirnos.
       - name: Instalar Chromium
-        run: python -m playwright install --with-deps chromium
+        run: |
+          for i in 1 2 3 4 5; do
+            python -m playwright install --with-deps chromium && exit 0
+            echo "Intento $i falló, reintentando en 20s..."
+            sleep 20
+          done
+          exit 1
 
       # La base de datos vive en la caché de Actions: cada ejecución restaura la última
       # y guarda una nueva. Si algún día se perdiera, el monitor vuelve a "sembrar" en
