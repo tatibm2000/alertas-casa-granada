@@ -85,10 +85,10 @@ jobs:
       # cambios. Si el último commit tiene más de 45 días, hacemos uno vacío.
       - name: Keepalive
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           last=$(git log -1 --format=%ct)
           now=$(date +%s)
           if [ $(( (now - last) / 86400 )) -ge 45 ]; then
-            git config --global --add safe.directory "$GITHUB_WORKSPACE"
             git config user.name "monitor-bot"
             git config user.email "monitor-bot@users.noreply.github.com"
             git commit --allow-empty -m "keepalive"
